@@ -12,23 +12,26 @@ def parse_args() -> int:
         sys.exit("Maximum amount of threads is 500!")
     return THREAD_AMOUNT
 
+chars = string.ascii_letters + string.digits
+chars1 = string.ascii_lowercase + string.digits
+
 def download():
     url = 'http://i.imgur.com/'
     while True:
         length = random.choice((5, 6))
         filename = ''
         if length == 5:
-            filename += ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
+            filename += ''.join(random.choice(chars) for _ in range(5))
         else:
-            filename += ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(3))
-            filename += ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(3))
+            filename += ''.join(random.choice(chars) for _ in range(3))
+            filename += ''.join(random.choice(chars1) for _ in range(3))
         filename += '.jpg'
 
         if filename in os.listdir(ROOT_DIR):#if file exists
             continue
     
         content = requests.get(url+filename).content
-        if len(content) in INVALID or b'<!DOCTYPE html' in content:
+        if len(content) in INVALID or b'<!DOCTYPE html' == content[:14]:
             continue
 
         file = open(ROOT_DIR+filename,'wb')
