@@ -1,8 +1,10 @@
-import string, random, requests, os
+import string, random, requests, os, time
 
 INVALID = [0, 503, 5082, 4939, 4940, 4941, 12003, 5556]
 
 ROOT_DIR = './photos/'
+
+timeout = 4
 
 def parse_args() -> int:
     if len(sys.argv) < 2:
@@ -18,6 +20,7 @@ chars1 = string.ascii_lowercase + string.digits
 def download():
     url = 'http://i.imgur.com/'
     while True:
+        start = int(time.time())
         length = random.choice((5, 6))
         filename = ''
         if length == 5:
@@ -37,6 +40,9 @@ def download():
         file = open(ROOT_DIR+filename,'wb')
         file.write(content)
         file.close()
+        delta = int(time.time()) - start
+        if delta < timeout:
+            time.sleep(timeout - delta)
 
 
 
