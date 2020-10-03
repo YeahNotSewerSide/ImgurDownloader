@@ -34,7 +34,7 @@ def download():
             continue
     
         content = requests.get(url+filename).content
-        if len(content) in INVALID or b'<!DOCTYPE html' == content[:14]:
+        if len(content) in INVALID or b'<!doctype html' == content[:14].lower():
             continue
 
         file = open(ROOT_DIR+filename,'wb')
@@ -50,6 +50,7 @@ def download():
 
 
 def main():
+    
     THREAD_AMOUNT = parse_args()
     try:
         os.mkdir(ROOT_DIR)
