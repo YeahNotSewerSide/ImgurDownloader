@@ -1,10 +1,10 @@
-import string, random, requests, os, time
+import string, random, requests, os, time, threading
 
 INVALID = [0, 503, 5082, 4939, 4940, 4941, 12003, 5556]
 
 ROOT_DIR = './photos/'
 
-timeout = 4
+cooldown = 10
 
 def parse_args() -> int:
     if len(sys.argv) < 2:
@@ -17,9 +17,68 @@ def parse_args() -> int:
 chars = string.ascii_letters + string.digits
 chars1 = string.ascii_lowercase + string.digits
 
-def download():
+THREADS_PER_PROCESS = 10
+
+
+REQUESTS = []
+RESPONSES = []
+
+BAD = []
+
+COOLDOWN = False
+
+def downloader():
+    global COOLDOWN
     url = 'http://i.imgur.com/'
     while True:
+        if COOLDOWN:
+            time.sleep(cooldown)
+        try:
+            request = REQUESTS.pop(0)
+        except:
+            time.sleep(0.5)
+            continue
+           
+        try:
+            content = requests.get(url+request).content
+        except:
+            COOLDOWN = True
+            continue
+        if len(content) in INVALID or b'<!doctype html' == content[:14].lower():
+            BAD.append(request)
+            continue
+           
+        RESPONSES.append((request,content))
+
+def writer():
+    while True:
+        try:
+            response = RESPONSES.pop(0)
+        except:
+            time.sleep(0.5)
+            continue
+        file = open(ROOT_DIR+response[0],'wb')
+        file.write(response[1])
+        file.close()
+
+
+
+def download():
+    global COOLDOWN
+    threads = []
+    for i in range(THREADS_PER_PROCESS):
+        threads.append(threading.Thread(target=downloader,args=[]))
+        threads[i].start()
+        
+    threads.append(threading.Thread(target=writer,args=[]))
+    threads[-1].start()
+    
+    while True:
+        if COOLDOWN:
+            print(f"COOLDOWN! {cooldown} secs. pausing {THREADS_PER_PROCESS} threads!")
+            time.sleep(cooldown)
+            cooldown = False
+            
         start = int(time.time())
         length = random.choice((5, 6))
         filename = ''
@@ -30,19 +89,27 @@ def download():
             filename += ''.join(random.choice(chars1) for _ in range(3))
         filename += '.jpg'
 
-        if filename in os.listdir(ROOT_DIR):#if file exists
-            continue
-    
-        content = requests.get(url+filename).content
-        if len(content) in INVALID or b'<!doctype html' == content[:14].lower():
-            continue
-
-        file = open(ROOT_DIR+filename,'wb')
-        file.write(content)
-        file.close()
-        delta = int(time.time()) - start
-        if delta < timeout:
-            time.sleep(timeout - delta)
+        if filename in BAD or filename in os.listdir(ROOT_DIR) or filename in REQUESTS:#if file exists
+            pass
+        else:
+            REQUESTS.append(filename)
+            time.sleep(0.2)
+        # content = requests.get(url+filename).content
+        # if len(content) in INVALID or b'<!doctype html' == content[:14].lower():
+            # continue
+        # try:
+            # response = RESPONSES.pop(0)
+        # except:
+            # delta = int(time.time()) - start
+            # if delta < timeout:
+                # time.sleep(timeout - delta)
+            # continue
+        # file = open(ROOT_DIR+response[0],'wb')
+        # file.write(response[1])
+        # file.close()
+        # delta = int(time.time()) - start
+        # if delta < timeout:
+            # time.sleep(timeout - delta)
 
 
 
