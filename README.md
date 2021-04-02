@@ -1,6 +1,8 @@
 # ImgurDownloader
 
-That script is based on https://github.com/markbookk/prntscrScraper , but fully rewrited.
+This script searches for random pictures on Imgur and downloads them.
+
+Main feature of that downloader is that it's written on pure sockets, so it's pretty fast.
 
 # Simple usage
 
