@@ -26,6 +26,7 @@ def parse_args() -> int:
 
 chars = string.ascii_letters + string.digits
 chars1 = string.ascii_lowercase + string.digits
+ALL_CHARS = string.ascii_lowercase+string.ascii_uppercase+string.digits
 
 HOSTNAME = 'i.imgur.com'
 
@@ -35,7 +36,7 @@ server_port = 443
 REQUESTS = []
 RESPONSES = []
 
-BAD = []
+BAD = {}
 
 
 def get_payload(filename:str):
@@ -55,6 +56,14 @@ def parse_headers(data:str):
     num = int(num)
     return num
 
+def get_extension(data:bytes) -> str:
+    if data[0:8] == b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a":
+        return 'png'
+    elif data[0:3] == b'\xff\xd8\xff':
+        return 'jpg'
+    elif data[0:4] == b'GIF8':
+        return 'gif'
+    return 'jpg'
 
 def downloader():
     global BAD,REQUESTS,MAX_CONNECTIONS
@@ -82,7 +91,7 @@ def downloader():
                     continue
 
                 try:
-                    connection.send(get_payload(request))
+                    connection.send(get_payload(request+'.jpg'))
                 except:
                     REQUESTS.append(request)
                     connections[id].close()
@@ -132,7 +141,7 @@ def downloader():
                 data = data_raw.decode('ascii')
                 size = parse_headers(data)
                 if size in INVALID:
-                    BAD.append(request)
+                    BAD[request] = True
                     connections_data[id] = [0,b'',False,'',False]
                     continue
                 connections_data[id][0] = size
@@ -153,7 +162,7 @@ def downloader():
                     continue
                 if not connections_data[id][4]:
                     if b'<!doctype html' == data[:14].lower():
-                        BAD.append(request)
+                        BAD[request] = True
                         connections_data[id] = [0,b'',False,'',False]
                         continue
                     connections_data[id][4] = True
@@ -164,7 +173,6 @@ def downloader():
                 if connections_data[id][0] == 0:
                     RESPONSES.append((request,connections_data[id][1]))
                     connections_data[id] = [0,b'',False,'',False]
-        #time.sleep(0.05)
         
 
 
@@ -190,7 +198,8 @@ def writer():
         except:
             time.sleep(0.5)
             continue
-        file = open(ROOT_DIR+response[0],'wb')
+        ext = get_extension(response[1])
+        file = open(ROOT_DIR+response[0]+f'.{ext}','wb')
         file.write(response[1])
         file.close()
 
@@ -200,10 +209,10 @@ def download(max_cons):
     MAX_CONNECTIONS = max_cons
     threads = []
     for i in range(THREADS_PER_PROCESS):
-        threads.append(threading.Thread(target=downloader,args=[]))
+        threads.append(threading.Thread(target=downloader,args=[],daemon=True))
         threads[i].start()
         
-    threads.append(threading.Thread(target=writer,args=[]))
+    threads.append(threading.Thread(target=writer,args=[],daemon=True))
     threads[-1].start()
     counter = 0
     while True:
@@ -217,9 +226,10 @@ def download(max_cons):
         else:
             filename += ''.join(random.choice(chars) for _ in range(3))
             filename += ''.join(random.choice(chars1) for _ in range(3))
-        filename += '.jpg'
 
-        if filename in BAD or filename in os.listdir(ROOT_DIR) or filename in REQUESTS:#if file exists
+        if filename in BAD\
+             or filename in os.listdir(ROOT_DIR)\
+             or filename in REQUESTS:#if file exists
             pass
         else:
             REQUESTS.append(filename)
@@ -245,8 +255,7 @@ def main():
     print(f'{THREADS_PER_PROCESS} downloading threads per process')
     print(f'{max_cons} connections per thread in process')
     for i in range(THREAD_AMOUNT):
-        multiprocessing.Process(target=download,args=[max_cons]).start()
-    #download()
+        multiprocessing.Process(target=download,args=[max_cons],daemon=True).start()
 
     while True:
         time.sleep(1)
